@@ -1,0 +1,197 @@
+
+#include "Arduino.h"
+byte const BP_MOD_NOMOD = 0x00;
+byte const BP_KEY_LEFT_ARROW = 0x50;  //Left arrow
+byte const BP_KEY_RIGHT_ARROW = 0x4F;  //Right arrow
+byte const BP_KEY_DOWN_ARROW = 0x51;  //Down arrow
+byte const BP_KEY_ENTER = 0x28;  //Enter
+byte const BP_KEY_UP_ARROW = 0x52;  //Up arrow
+
+byte STATE = B00000000;
+byte const BUTTON1_PRESSED = B00000001;
+byte const BUTTON2_PRESSED = B00000010;
+byte const BUTTON3_PRESSED = B00000100;
+byte  const BUTTON4_PRESSED = B00001000;
+byte const BUTTON_NOT_PRESSED = B00000000;
+//#define BP_GAMEJOY_ST_BTN0  (1<<0)
+//#define BP_GAMEJOY_ST_BTN1  (1<<1)
+//#define BP_GAMEJOY_ST_BTN2  (1<<2)
+//#define BP_GAMEJOY_ST_BTN3  (1<<3)
+//#define BP_GAMEJOY_ST_BTN4  (1<<4)
+#define BP_GAMEJOY_ST_BTN5  (1<<5)
+#define BP_GAMEJOY_ST_BTN6  (1<<6)
+#define BP_GAMEJOY_ST_BTN7  (1<<7)
+#define BP_GAMEJOY_ST_NOBTN 0x00
+
+//ND = Second button combination (BTN0 to BTN7)
+#define BP_GAMEJOY_ND_BTN0  (1<<0)
+#define BP_GAMEJOY_ND_BTN1  (1<<1)
+#define BP_GAMEJOY_ND_BTN2  (1<<2)
+#define BP_GAMEJOY_ND_BTN3  (1<<3)
+#define BP_GAMEJOY_ND_BTN4  (1<<4)
+#define BP_GAMEJOY_ND_BTN5  (1<<5)
+#define BP_GAMEJOY_ND_BTN6  (1<<6)
+#define BP_GAMEJOY_ND_BTN7  (1<<7)
+#define BP_GAMEJOY_ND_NOBTN 0x00
+
+int const numPins = 4;
+int analogPins[numPins] = { 8, 7, 6, 5 };
+int previousPinStates[numPins] = { LOW, LOW, LOW, LOW };
+int pinStates[numPins] = { LOW, LOW, LOW, LOW };
+int values[numPins] = { 0, 0, 0, 0 };
+//byte keys[numPins] = { BP_KEY_LEFT_ARROW, BP_KEY_DOWN_ARROW, BP_KEY_UP_ARROW, BP_KEY_RIGHT_ARROW };
+byte keys[numPins] { BUTTON1_PRESSED, BUTTON2_PRESSED, BUTTON3_PRESSED, BUTTON4_PRESSED };
+int const upperThreshold = 100;
+int const lowerThreshold = -1000;
+
+void setup() {
+  //Bluetooth protocol types
+  //#define BP_SPP_SPP        "AW\r\n"
+  //#define BP_HID_KEYBOARD     "SH,0200\r\n"
+  //#define BP_HID_MOUSE        "SH,0220\r\n"
+  //#define BP_HID_GAMEPAD      "SH,0210\r\n"
+  //#define BP_HID_JOYSTICK     "SH,0240\r\n"
+  //#define BP_HID_COMBO        "SH,0230\r\n"
+  //#define BP_MODE_SPP        "S~,0\r\n"
+  //#define BP_MODE_HID       "S~,6\r\n"
+  //#define BP_MODE_AUTOCONNECT   "SM,6\r\n"
+  //#define BP_MODE_MANUCONNECT   "SM,4\r\n"
+  //#define BP_MODE_STATUS      "SO,/#\r\n"
+  // Restart: Serial1.print("R,1\r\n")
+  for (int i = 0; i < numPins; i++) {
+    pinMode(analogPins[i], INPUT);
+  }
+  //analogReference(EXTERNAL);
+  Serial1.begin(9600);
+}
+
+void loop() {
+  for (int i = 0; i < numPins; i++) {
+    values[i] = analogRead(analogPins[i]);
+    if (values[i] < lowerThreshold || values[i] > upperThreshold) {
+      pinStates[i] = HIGH;
+    }
+    else {
+      pinStates[i] = LOW;
+    }
+    if (pinStates[i] == HIGH && pinStates[i] != previousPinStates[i] )
+    {
+      //   keyboardPress(keys[i], BP_MOD_NOMOD);
+      //   keyboardPressSerial(keys[i], BP_MOD_NOMOD);
+      STATE |= keys[i];
+      byte x_left = 0x00;
+      byte y_left = 0x00;
+      byte z_pos = 0x00;
+      byte rot_pos = 0x00;
+      Serial1.write((byte)0xFD); //Start HID Report
+      Serial1.write((byte)0x6); //Length byte
+      Serial1.write((byte)x_left); //value between -127 to 127 indicating the x postition
+      Serial1.write((byte)y_left); //value between -127 to 127 indicating the y postition
+      Serial1.write((byte)z_pos); //value between -127 to 127 indicating the z postition
+      Serial1.write((byte)rot_pos); //value between -127 to 127 indicating the rotation postition
+      Serial1.write(STATE); //First Button byte
+      Serial1.write((byte)0x00); //Second Button byte
+    }
+    else if (pinStates[i] == LOW && pinStates[i] != previousPinStates[i])
+    {
+      //  keyboardReleaseAll();
+      //  keyboardReleaseSerial(keys[i], BP_MOD_NOMOD);
+      STATE &= ~keys[i];
+      byte x_left = 0x00;
+      byte y_left = 0x00;
+      byte z_pos = 0x00;
+      byte rot_pos = 0x00;
+      Serial1.write((byte)0xFD); //Start HID Report
+      Serial1.write((byte)0x6); //Length byte
+      Serial1.write((byte)x_left); //value between -127 to 127 indicating the x postition
+      Serial1.write((byte)y_left); //value between -127 to 127 indicating the y postition
+      Serial1.write((byte)z_pos); //value between -127 to 127 indicating the z postition
+      Serial1.write((byte)rot_pos); //value between -127 to 127 indicating the rotation postition
+      Serial1.write(STATE); //First Button byte
+      Serial1.write((byte)0x00); //Second Button byte
+    }
+    previousPinStates[i] = pinStates[i];
+  }
+
+}
+
+void keyboardPress(byte BP_KEY, byte BP_MOD) {
+  Serial1.write((byte)0xFD); //Start HID Report
+  Serial1.write((byte)0x9); //Length byte
+  Serial1.write((byte)0x1); //Descriptor byte
+  Serial1.write(BP_MOD); //Modifier byte
+  Serial1.write((byte)0x00); //-
+  Serial1.write(BP_KEY); //Send KEY
+  for (int i = 0; i < 5; i++) { //Send five zero bytes
+    Serial1.write((byte)0x00);
+  }
+}
+
+void keyboardReleaseAll() {
+  keyboardPress((byte)0x00, BP_MOD_NOMOD);
+}
+
+void gameJoyPress()
+{
+  byte x_left = 0x00;
+  byte y_left = 0x00;
+  byte z_pos = 0x00;
+  byte rot_pos = 0x00;
+  Serial1.write((byte)0xFD); //Start HID Report
+  Serial1.write((byte)0x6); //Length byte
+  Serial1.write((byte)x_left); //value between -127 to 127 indicating the x postition
+  Serial1.write((byte)y_left); //value between -127 to 127 indicating the y postition
+  Serial1.write((byte)z_pos); //value between -127 to 127 indicating the z postition
+  Serial1.write((byte)rot_pos); //value between -127 to 127 indicating the rotation postition
+  Serial1.write(STATE); //First Button byte
+  Serial1.write((byte)0x00); //Second Button byte
+}
+
+//void RN42_HIDRaw_Arduino::SendGamepadRaw(char x_left, char y_left, char z_pos, char rot_pos, uint8_t buttons1, uint8_t buttons2)
+void exampe(char x_left, char y_left, char z_pos, char rot_pos, uint8_t buttons1, uint8_t buttons2)
+{
+  //write the header part for RN42
+  Serial.write((uint8_t)0xFD); //start byte
+  Serial.write((uint8_t)0x06); //length of the descriptor
+  //gampad positions and buttons
+  //on a gamepad there typically is two analog joysticks one is typically used to
+  //indicate x/y position and one is for z/rotation.
+  Serial.write((uint8_t)x_left); //value between -127 to 127 indicating the x postition
+  Serial.write((uint8_t)y_left); //value between -127 to 127 indicating the y postition
+  Serial.write((uint8_t)z_pos); //value between -127 to 127 indicating the z postition
+  Serial.write((uint8_t)rot_pos); //value between -127 to 127 indicating the rotation postition
+  //one bit for each button pressed there can be a total of 16 buttons one byte in each
+  //set the bit to show a button pressed and clear the bit to indicate not pressed
+  Serial.write((uint8_t)buttons1);
+  Serial.write((uint8_t)buttons2);
+}
+
+void keyboardPressSerial(byte BP_KEY, byte BP_MOD) {
+  if (BP_KEY == BP_KEY_LEFT_ARROW) {
+    Serial1.println("LeftPress");
+  }
+  else if (BP_KEY == BP_KEY_RIGHT_ARROW) {
+    Serial1.println("RightPress");
+  }
+  else if (BP_KEY == BP_KEY_UP_ARROW) {
+    Serial1.println("UpPress");
+  }
+  else if (BP_KEY == BP_KEY_DOWN_ARROW) {
+    Serial1.println("DownPress");
+  }
+}
+
+void keyboardReleaseSerial(byte BP_KEY, byte BP_MOD) {
+  if (BP_KEY == BP_KEY_LEFT_ARROW) {
+    Serial1.println("LeftRelease");
+  }
+  else if (BP_KEY == BP_KEY_RIGHT_ARROW) {
+    Serial1.println("RightRelease");
+  }
+  else if (BP_KEY == BP_KEY_UP_ARROW) {
+    Serial1.println("UpRelease");
+  }
+  else if (BP_KEY == BP_KEY_DOWN_ARROW) {
+    Serial1.println("DownRelease");
+  }
+}
